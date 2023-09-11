@@ -4,12 +4,14 @@ import (
 	"encoding/csv"
 	"log"
 	"os"
+	"strings"
+
 	"github.com/gocolly/colly"
 )
 
 // defining a data structure to store the scraped data
-type PokemonProduct struct {
-	url, image, name, price string
+type car struct {
+	title, price, monthly, km, apr string
 }
 
 // it verifies if a string is present in a slice
@@ -25,13 +27,13 @@ func contains(s []string, str string) bool {
 
 func main() {
 	// initializing the slice of structs that will contain the scraped data
-	var pokemonProducts []PokemonProduct
+	var cars []car
 
 	// initializing the list of pages to scrape with an empty slice
 	var pagesToScrape []string
 
 	// the first pagination URL to scrape
-	pageToScrape := "https://scrapeme.live/shop/page/1/"
+	pageToScrape := "https://www.autotrader.ca/cars/on/toronto/?rcp=15&rcs=0&srt=35&prx=250&prv=Ontario&loc=Toronto%2C%20ON&hprc=True&wcp=True&inMarket=advancedSearch"
 
 	// initializing the list of pages discovered with a pageToScrape
 	pagesDiscovered := []string{pageToScrape}
@@ -62,16 +64,36 @@ func main() {
 	})
 
 	// scraping the product data
-	c.OnHTML("li.product", func(e *colly.HTMLElement) {
-		pokemonProduct := PokemonProduct{}
+	c.OnHTML("div.result-item", func(e *colly.HTMLElement) {
+		// Initialize a new car struct
+		car := car{}
 
-		pokemonProduct.url = e.ChildAttr("a", "href")
-		pokemonProduct.image = e.ChildAttr("img", "src")
-		pokemonProduct.name = e.ChildText("h2")
-		pokemonProduct.price = e.ChildText(".price")
+		// Title
+		car.title = e.ChildText("span.result-title.click > span.title-with-trim")
 
-		pokemonProducts = append(pokemonProducts, pokemonProduct)
+		car.price = e.ChildText("div.price-amount > span.price-amount-value")
+		// Kilometers
+		kmText := e.ChildText("span.odometer-proximity")
+		car.km = strings.TrimSpace(kmText)
+
+
+		// Monthly Payment and APR
+		car.monthly = e.ChildText("div.price-delta > div.price-outer-div > div > span.price-amount")
+		car.apr = e.ChildText("div.price-delta > div.flex-center > div.price-delta-text > p")
+
+		// Append the car data to the slice
+		cars = append(cars, car)
 	})
+
+	// c.OnHTML("a.dealer-split-wrapper", func(e *colly.HTMLElement) {
+
+	// 	// Price and Save Amount
+	// 	car.price = e.ChildText("span.price-amount-value")
+
+	// 	// Monthly Payment and APR
+	// 	car.monthly = e.ChildText("span.payment-tag-installment")
+	// 	car.apr = e.ChildText("span.payment-tag-rate")
+	// })
 
 	c.OnScraped(func(response *colly.Response) {
 		// until there is still a page to scrape
@@ -103,22 +125,24 @@ func main() {
 
 	// defining the CSV headers
 	headers := []string{
-		"url",
-		"image",
-		"name",
+		"title",
 		"price",
+		"km",
+		"monthly",
+		"apr",
 	}
 	// writing the column headers
 	writer.Write(headers)
 
 	// adding each Pokemon product to the CSV output file
-	for _, pokemonProduct := range pokemonProducts {
+	for _, car := range cars {
 		// converting a PokemonProduct to an array of strings
 		record := []string{
-			pokemonProduct.url,
-			pokemonProduct.image,
-			pokemonProduct.name,
-			pokemonProduct.price,
+			car.title,
+			car.price,
+			car.km,
+			car.monthly,
+			car.apr,
 		}
 
 		// writing a new CSV record
@@ -126,3 +150,7 @@ func main() {
 	}
 	defer writer.Flush()
 }
+
+// type car struct {
+// 	title, price, km, monthly, apr string
+// }
